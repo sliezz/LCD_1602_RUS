@@ -10,7 +10,6 @@ wchar_t char_utf8[] = L" ";
 LCD_1602_RUS :: LCD_1602_RUS(uint8_t lcd_Addr, uint8_t lcd_cols, uint8_t lcd_rows, uint8_t user_custom_symbols) : LiquidCrystal_I2C (lcd_Addr, lcd_cols, lcd_rows)
 {
   max_symbol_count = 8 - user_custom_symbols;
-  symbol_index = 0;
   cursor_col = 0;
   cursor_row = 0;
   ResetAllIndex();//Сброс значений индексов (неинициализированы = 255)
@@ -115,30 +114,33 @@ void LCD_1602_RUS::print(const wchar_t *_str) {
 }
 void LCD_1602_RUS::CharSetToLCD(uint8_t *array, uint8_t *index)
 {
-  uint8_t x, y;
+  static uint8_t symbol_order[8]={7,6,5,4,3,2,1,0};
+  static uint8_t* symbol_codes[8]={NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+  uint8_t x, y, symbol_index;
 
-  if (*index == 255) // Если символ еще не создан, то создаем
+  symbol_index = *index;
+  if (symbol_index == 255) // Если символ еще не создан, то создаем
   {
+    for(symbol_index=0; symbol_index<8 && symbol_order[symbol_index]!=7; symbol_index++);
+    if (symbol_codes[symbol_index]) *(symbol_codes[symbol_index])=255;
+
     x = getCursorCol();
     y = getCursorRow();
     createChar(symbol_index, (uint8_t *)array);// Создаем символ на текущем (по очереди) месте в знакогенераторе (от 0 до MAX_SYMBOL_COUNT)
     setCursor(x, y);
-    write(symbol_index);// Выводим символ на экран
     //Запомианем, что букве соответствует определенный индекс
     *index = symbol_index;
-    symbol_index++;
-    if (symbol_index >= max_symbol_count)
-    {
-      symbol_index = 0;
-      ResetAllIndex();
-    }
   }
-  else   //Иначе печатаем уже существующий
-    write(*index);
+
+  y = symbol_order[symbol_index];
+  for(x=0; x<8; x++) if (symbol_order[x]<y) symbol_order[x]++;
+  symbol_order[symbol_index] = 0;
+  symbol_codes[symbol_index] = index;
+
+  write(symbol_index);
 }
 void LCD_1602_RUS::ResetAllIndex()
 {
-  symbol_index = 0;
   index_rus_B = 255;
   index_rus_G = 255;
   index_rus_D = 255;
